@@ -1,7 +1,7 @@
 import React from 'react';
-import { ArrowRight, CheckCircle, XCircle, Briefcase, Award } from 'lucide-react';
+import { ArrowRight, CheckCircle, XCircle, Briefcase, Award, RefreshCcw } from 'lucide-react';
 
-const QuizModule = ({ quizData, quizState, onAnswer, onNext, onDashboard }) => {
+const QuizModule = ({ quizData, quizState, onAnswer, onNext, onDashboard, onRetake }) => {
   const isComplete = quizState.completed;
   const passed = quizState.score === quizData.length;
 
@@ -18,17 +18,26 @@ const QuizModule = ({ quizData, quizState, onAnswer, onNext, onDashboard }) => {
              <div className="bg-green-900/20 border border-green-500/50 p-6 rounded-xl mb-8">
                <p className="text-green-400 font-bold text-lg">Perfect Score!</p>
                <p className="text-green-200/70 text-sm mt-1">You are officially Mortgage Ready.</p>
+               
+               <button onClick={onDashboard} className="w-full bg-white text-black font-bold py-4 rounded-full hover:bg-zinc-200 transition-colors">
+                 Return to Dashboard
+               </button>
              </div>
            ) : (
              <div className="bg-red-900/20 border border-red-500/50 p-6 rounded-xl mb-8">
                <p className="text-red-400 font-bold text-lg">Not Quite Ready.</p>
                <p className="text-red-200/70 text-sm mt-1">You need 10/10 to pass. Review and try again.</p>
+               
+               {/* RETAKE BUTTON */}
+               <button onClick={onRetake} className="w-full mt-4 bg-yellow-500 text-black font-bold py-3 rounded-xl hover:bg-yellow-400 transition-colors flex items-center justify-center gap-2">
+                 <RefreshCcw size={20} /> Try Again
+               </button>
+
+               <button onClick={onDashboard} className="w-full mt-2 text-zinc-400 font-bold py-3 hover:text-white transition-colors">
+                 Review Modules First
+               </button>
              </div>
            )}
-
-           <button onClick={onDashboard} className="w-full bg-white text-black font-bold py-4 rounded-full hover:bg-zinc-200 transition-colors">
-             Return to Dashboard
-           </button>
         </div>
       </div>
     );

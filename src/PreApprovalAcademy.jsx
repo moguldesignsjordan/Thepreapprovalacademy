@@ -192,6 +192,7 @@ const lessonData = [
   }
 ];
 
+// --- QUIZ DATA ---
 const quizData = [
   { 
     id: 1, 
@@ -316,48 +317,44 @@ const PreApprovalAcademy = () => {
   const [quizState, setQuizState] = useState({ currentQuestion: 0, score: 0, selected: null, isCorrect: null, completed: false });
   const [activeLesson, setActiveLesson] = useState(null); // For Review Mode
 
-  // 1. AUTH LISTENER & DATA SYNC
+  // 1. FAST AUTH + BACKGROUND FETCH
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       if (currentUser) {
+        // --- OPTIMISTIC UPDATE: Render Immediately ---
+        const basicUser = {
+           uid: currentUser.uid,
+           name: currentUser.displayName || currentUser.email.split('@')[0],
+           email: currentUser.email,
+           photoURL: currentUser.photoURL,
+           progress: { completedLessons: [], xp: 0, quizPassed: false, currentLessonIndex: 0 } 
+        };
+        setUser(basicUser);
+        setView('dashboard'); // SHOW DASHBOARD NOW
+
+        // --- BACKGROUND FETCH: Get Real Data ---
         try {
           const docRef = doc(db, "students", currentUser.uid);
           const docSnap = await getDoc(docRef);
           
           if (docSnap.exists()) {
             const data = docSnap.data();
-            setUser({ ...currentUser, ...data });
-            setProgress(data.progress || { completedLessons: [], xp: 0, quizPassed: false, currentLessonIndex: 0 });
-            // LOAD SAVED QUIZ STATE IF EXISTS
-            if (data.quizState) {
-                setQuizState(data.quizState);
-            }
+            setUser(prev => ({ ...prev, ...data }));
+            if (data.progress) setProgress(data.progress);
+            if (data.quizState) setQuizState(data.quizState);
             
             if (currentUser.email === "admin@initiative2053.com") {
                setIsAdmin(true);
-               setView('admin');
-            } else {
-               setView('dashboard');
             }
           } else {
-             // CREATE PROFILE IF MISSING
              const newProfile = {
-                name: currentUser.displayName || currentUser.email.split('@')[0],
-                email: currentUser.email,
-                photo: currentUser.photoURL || null,
-                joined: new Date().toISOString(),
-                progress: { completedLessons: [], xp: 0, quizPassed: false, currentLessonIndex: 0 },
-                quizState: { currentQuestion: 0, score: 0, selected: null, isCorrect: null, completed: false }
+                ...basicUser,
+                joined: new Date().toISOString()
              };
-             await setDoc(docRef, newProfile);
-             setUser({ ...currentUser, ...newProfile });
-             setProgress(newProfile.progress);
-             setQuizState(newProfile.quizState);
-             setView('dashboard');
+             await setDoc(docRef, { ...newProfile });
           }
         } catch (err) {
-          console.error("Database Error:", err);
-          setView('login');
+          console.error("Background fetch error:", err);
         }
       } else {
         setUser(null);
@@ -384,7 +381,6 @@ const PreApprovalAcademy = () => {
 
   // 3. UNIVERSAL SAVE FUNCTION
   const saveUserData = async (updates) => {
-    // updates can contain { progress: ... } OR { quizState: ... } OR both
     if (user && !isAdmin) {
        await setDoc(doc(db, "students", user.uid), updates, { merge: true });
     }
@@ -397,7 +393,6 @@ const PreApprovalAcademy = () => {
   };
 
   const handleLessonComplete = (id, xp) => {
-    // If in Review Mode, just go back to Dashboard without saving progress
     if (activeLesson) {
         setView('dashboard');
         setActiveLesson(null);
@@ -414,14 +409,13 @@ const PreApprovalAcademy = () => {
     }
     
     setProgress(newP);
-    saveUserData({ progress: newP }); // Save Progress
+    saveUserData({ progress: newP }); 
     
     if (newP.completedLessons.length === lessonData.length) {
        setView('dashboard');
     }
   };
 
-  // Handle "Review" click from Dashboard
   const handleReviewLesson = (lessonId) => {
       const lessonToReview = lessonData.find(l => l.id === lessonId);
       if (lessonToReview) {
@@ -445,7 +439,7 @@ const PreApprovalAcademy = () => {
        }
     }
     setQuizState(newState);
-    saveUserData({ quizState: newState }); // SAVE QUIZ STATE
+    saveUserData({ quizState: newState });
   };
 
   const handleQuizAnswer = (idx) => {
@@ -453,7 +447,7 @@ const PreApprovalAcademy = () => {
     const newState = { ...quizState, selected: idx, isCorrect: correct, score: correct ? quizState.score + 1 : quizState.score };
     
     setQuizState(newState);
-    saveUserData({ quizState: newState }); // SAVE QUIZ STATE
+    saveUserData({ quizState: newState });
 
     if (correct && !quizState.completed) {
         const newP = { ...progress, xp: progress.xp + 10 };
@@ -465,7 +459,8 @@ const PreApprovalAcademy = () => {
   // --- RENDER ---
   if (view === 'loading') return <div className="min-h-screen flex items-center justify-center font-bold text-zinc-500">Loading Academy...</div>;
 
-  if (view === 'login') return <LoginPage onLogin={(u) => setView('loading')} />;
+  // IMPORTANT: Removed 'setView' call from Login to prevent race condition
+  if (view === 'login') return <LoginPage onLogin={() => {}} />; 
 
   if (view === 'admin') return (
     <div className="min-h-screen bg-zinc-100 p-4 md:p-8">
@@ -473,6 +468,7 @@ const PreApprovalAcademy = () => {
           <div className="flex justify-between items-center mb-8">
              <h1 className="text-2xl font-bold flex items-center gap-2"><ShieldCheck /> Admin Dashboard</h1>
              <button onClick={handleLogout} className="text-zinc-500 font-bold">Logout</button>
+             <button onClick={() => setView('dashboard')} className="text-blue-600 font-bold ml-4">View App</button>
           </div>
           <div className="bg-white rounded-xl shadow overflow-hidden overflow-x-auto">
              <table className="w-full text-left min-w-[600px]">
@@ -499,20 +495,20 @@ const PreApprovalAcademy = () => {
   
   if (view === 'quiz') return <QuizModule quizData={quizData} quizState={quizState} onAnswer={handleQuizAnswer} onNext={handleQuizNext} onDashboard={() => setView('dashboard')} />;
 
-  if (user && progress) {
+  if (user) {
       return (
         <Dashboard 
             user={user} 
             progress={progress} 
-            quizState={quizState} // Pass quiz state to dashboard
+            quizState={quizState} 
             lessonData={lessonData} 
             onLogout={handleLogout} 
             onResume={() => setView(progress.completedLessons.length === 10 ? 'quiz' : 'lesson')} 
-            onReview={handleReviewLesson} // Pass review handler
+            onReview={handleReviewLesson} 
         />
       );
   } else {
-      return <div>Loading user data...</div>
+      return <div>Loading...</div>
   }
 };
 

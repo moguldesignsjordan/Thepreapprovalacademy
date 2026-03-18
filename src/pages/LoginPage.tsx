@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from "firebase/auth";
-import { auth, googleProvider, db } from '../firebase';
+import { auth, googleProvider, db } from '../config/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { BookOpen, Mail, Lock, User, ArrowRight, AlertCircle, Home, Sun, Moon } from 'lucide-react';
-import { useTheme } from '../ThemeContext';
+import { useTheme } from '../contexts/ThemeContext';
 
 const LoginPage = ({ onLogin }) => {
   const { theme, toggleTheme } = useTheme();

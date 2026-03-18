@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { db, auth } from './firebase';
-import { doc, getDoc, setDoc, collection, getDocs } from 'firebase/firestore';
+import { db, auth } from '../config/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import LoginPage from './components/LoginPage';
-import Dashboard from './components/Dashboard';
-import ModuleView from './components/ModuleView';
-import FinalAssessment from './components/FinalAssessment';
-import { ShieldCheck, User } from 'lucide-react';
+import LoginPage from './LoginPage';
+import Dashboard from './Dashboard';
+import ModuleView from './ModuleView';
+import FinalAssessment from './FinalAssessment';
 
 // ═══════════════════════════════════════════════════════════════════
 // MODULE CURRICULUM DATA (10 MODULES)
@@ -170,10 +169,11 @@ const MODULES = [
     ]
   },
   {
-    id: 8, title: "Buying Strategy", subtitle: "Structure the Deal & Build Advantage",
+    id: 8, title: "Strategic Buying Approaches", subtitle: "FHA, 2-Family, 203(k), VA — Choose Your Strategy",
     quote: { text: "Strategy without tactics is the slowest route to victory.", author: "Sun Tzu" },
     videoId: "MODULE_8_VIDEO_ID", xp: 50,
     sections: [
+      { heading: "Why Strategy Matters", paragraphs: ["Your buying strategy must align with your financial goals, cash position, and long-term vision. Pre-approval without strategy is guessing."] },
       { heading: "The FHA Play", paragraphs: ["Up to 6% seller concessions. 12-month owner-occupancy, then you may move, rent, or buy again if qualified. Strategic financing, not cheap financing."] },
       { heading: "The 2 Family Play", paragraphs: ["Live in one unit, rent the other. Up to 75% of projected rent can count toward qualifying income. The property helps qualify itself."] },
       { heading: "The FHA 203(k) Play", paragraphs: ["One loan covers purchase plus approved renovations. Manufacturing equity, not waiting for it. More paperwork but rewards long-term thinkers."] },
@@ -237,7 +237,6 @@ const PreApprovalAcademy = () => {
   const [user, setUser] = useState(null);
   const [view, setView] = useState('loading');
   const [isAdmin, setIsAdmin] = useState(false);
-  const [studentsList, setStudentsList] = useState([]);
   const [activeModule, setActiveModule] = useState(null);
   const [progress, setProgress] = useState({ completedModules: [], moduleQuizzes: {}, finalScore: null, finalPassed: false, xp: 0 });
 
@@ -254,7 +253,8 @@ const PreApprovalAcademy = () => {
             const data = docSnap.data();
             setUser(prev => ({ ...prev, ...data }));
             if (data.progress) setProgress(data.progress);
-            if (currentUser.email === "admin@initiative2053.com") setIsAdmin(true);
+            // Check isAdmin field from Firestore instead of hardcoded email
+            if (data.isAdmin === true) setIsAdmin(true);
           } else {
             await setDoc(docRef, { ...basicUser, joined: new Date().toISOString(), progress: { completedModules: [], moduleQuizzes: {}, finalScore: null, finalPassed: false, xp: 0 } });
           }
@@ -263,12 +263,6 @@ const PreApprovalAcademy = () => {
     });
     return () => unsubscribe();
   }, []);
-
-  useEffect(() => {
-    if (view === 'admin' && isAdmin) {
-      (async () => { try { const snap = await getDocs(collection(db, "students")); const list = []; snap.forEach(d => list.push({ id: d.id, ...d.data() })); setStudentsList(list); } catch (e) { console.error(e); } })();
-    }
-  }, [view, isAdmin]);
 
   const saveProgress = async (newProgress) => {
     setProgress(newProgress);
@@ -291,27 +285,6 @@ const PreApprovalAcademy = () => {
     saveProgress(newProgress);
     setView('dashboard');
   };
-
-  const AdminView = () => (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-black text-stone-900 dark:text-white flex items-center gap-2"><ShieldCheck size={22} /> Admin Panel</h2>
-      <div className="bg-white dark:bg-zinc-900 rounded-xl border border-stone-200 dark:border-zinc-800 overflow-hidden overflow-x-auto shadow-sm dark:shadow-none">
-        <table className="w-full text-left min-w-[600px]">
-          <thead className="bg-stone-50 dark:bg-zinc-800">
-            <tr><th className="p-4 text-stone-500 dark:text-zinc-400 text-xs font-bold uppercase">Student</th><th className="p-4 text-stone-500 dark:text-zinc-400 text-xs font-bold uppercase">XP</th><th className="p-4 text-stone-500 dark:text-zinc-400 text-xs font-bold uppercase">Modules</th><th className="p-4 text-stone-500 dark:text-zinc-400 text-xs font-bold uppercase">Status</th></tr>
-          </thead>
-          <tbody>{studentsList.map(s => (
-            <tr key={s.id} className="border-t border-stone-100 dark:border-zinc-800">
-              <td className="p-4 font-bold text-stone-900 dark:text-white flex items-center gap-2"><User size={16} className="text-stone-400 dark:text-zinc-500" /> {s.name || s.displayName || "Student"}</td>
-              <td className="p-4 text-orange-500 dark:text-amber-400 font-mono">{s.progress?.xp || 0}</td>
-              <td className="p-4"><div className="w-24 bg-stone-200 dark:bg-zinc-800 h-2 rounded-full overflow-hidden"><div className="bg-orange-500 dark:bg-amber-500 h-full rounded-full" style={{ width: `${((s.progress?.completedModules?.length || 0) / 10) * 100}%` }} /></div></td>
-              <td className="p-4">{s.progress?.finalPassed ? <span className="text-green-700 dark:text-green-400 font-bold text-xs bg-green-50 dark:bg-green-500/15 px-2 py-1 rounded">GRADUATE</span> : <span className="text-stone-400 dark:text-zinc-500 text-xs">In Progress</span>}</td>
-            </tr>
-          ))}</tbody>
-        </table>
-      </div>
-    </div>
-  );
 
   if (view === 'loading') return (
     <div className="min-h-screen bg-stone-50 dark:bg-black flex items-center justify-center transition-colors duration-300">
@@ -338,8 +311,7 @@ const PreApprovalAcademy = () => {
   if (user) return (
     <Dashboard user={user} progress={progress} modules={MODULES} isAdmin={isAdmin}
       onSelectModule={(mod) => { setActiveModule(mod); setView('module'); }}
-      onStartFinal={() => setView('final')} onLogout={handleLogout}
-      onAdminView={isAdmin ? () => <AdminView /> : null} />
+      onStartFinal={() => setView('final')} onLogout={handleLogout} />
   );
 
   return <div className="min-h-screen bg-stone-50 dark:bg-black flex items-center justify-center text-stone-400 dark:text-zinc-500">Loading...</div>;

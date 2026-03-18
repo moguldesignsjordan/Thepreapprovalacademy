@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   LogOut, BookOpen, Trophy, Award, ArrowRight, CheckCircle, Lock,
   PlayCircle, Home, FileText, Menu, X, ChevronRight, GraduationCap,
-  LayoutDashboard, User, Sun, Moon
+  LayoutDashboard, User, Sun, Moon, Settings, Shield
 } from 'lucide-react';
-import { useTheme } from '../ThemeContext';
+import { useTheme } from '../contexts/ThemeContext';
 
 const ProgressRing = ({ progress, size = 80, stroke = 6 }) => {
   const r = (size - stroke) / 2;
@@ -21,6 +22,7 @@ const ProgressRing = ({ progress, size = 80, stroke = 6 }) => {
 };
 
 const Dashboard = ({ user, progress, modules, onSelectModule, onStartFinal, onLogout, isAdmin, onAdminView }) => {
+  const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const [activeView, setActiveView] = useState('overview');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -31,8 +33,8 @@ const Dashboard = ({ user, progress, modules, onSelectModule, onStartFinal, onLo
   const totalXp = progress?.xp || 0;
   const displayName = user?.displayName || user?.name || user?.email?.split('@')[0] || "Student";
 
-  const SidebarItem = ({ id, label, icon: Icon }) => (
-    <button onClick={() => { setActiveView(id); setIsMobileMenuOpen(false); }}
+  const SidebarItem = ({ id, label, icon: Icon, onClick }) => (
+    <button onClick={onClick || (() => { setActiveView(id); setIsMobileMenuOpen(false); })}
       className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium text-sm
         ${activeView === id
           ? 'bg-orange-500 dark:bg-amber-500 text-white dark:text-black shadow-lg font-bold'
@@ -248,6 +250,9 @@ const Dashboard = ({ user, progress, modules, onSelectModule, onStartFinal, onLo
           <Home size={18} /> Academy
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => navigate('/profile')} className="p-2 rounded-full text-stone-400 dark:text-zinc-500 hover:text-orange-500 dark:hover:text-amber-400">
+            <Settings size={18} />
+          </button>
           <button onClick={toggleTheme} className="p-2 rounded-full text-stone-400 dark:text-zinc-500 hover:text-orange-500 dark:hover:text-amber-400">
             {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
           </button>
@@ -275,7 +280,27 @@ const Dashboard = ({ user, progress, modules, onSelectModule, onStartFinal, onLo
           <SidebarItem id="overview" label="Dashboard" icon={LayoutDashboard} />
           <SidebarItem id="curriculum" label="Curriculum" icon={BookOpen} />
           <SidebarItem id="resources" label="Resources" icon={FileText} />
-          {isAdmin && <SidebarItem id="admin" label="Admin Panel" icon={User} />}
+          
+          {/* Divider */}
+          <div className="border-t border-stone-100 dark:border-zinc-800 my-3" />
+          
+          {/* Admin Panel Link - navigates to /admin */}
+          {isAdmin && (
+            <SidebarItem 
+              id="admin" 
+              label="Admin Panel" 
+              icon={Shield} 
+              onClick={() => { navigate('/admin'); setIsMobileMenuOpen(false); }}
+            />
+          )}
+          
+          {/* Settings Link */}
+          <SidebarItem 
+            id="settings" 
+            label="Settings" 
+            icon={Settings} 
+            onClick={() => { navigate('/profile'); setIsMobileMenuOpen(false); }}
+          />
         </div>
 
         <div className="p-5 border-t border-stone-100 dark:border-zinc-900 bg-stone-50/50 dark:bg-black/50">
@@ -286,7 +311,11 @@ const Dashboard = ({ user, progress, modules, onSelectModule, onStartFinal, onLo
             <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
           </button>
 
-          <div className="flex items-center gap-3 mb-4">
+          {/* Clickable User Profile */}
+          <button 
+            onClick={() => navigate('/profile')}
+            className="w-full flex items-center gap-3 mb-4 p-2 -mx-2 rounded-xl hover:bg-stone-100 dark:hover:bg-zinc-800 transition-colors group"
+          >
             {user?.photoURL ? (
               <img src={user.photoURL} alt="" className="w-9 h-9 rounded-full border border-stone-200 dark:border-zinc-700 object-cover" />
             ) : (
@@ -294,11 +323,12 @@ const Dashboard = ({ user, progress, modules, onSelectModule, onStartFinal, onLo
                 {displayName.charAt(0).toUpperCase()}
               </div>
             )}
-            <div className="overflow-hidden flex-1">
-              <p className="font-bold text-stone-900 dark:text-white text-sm truncate">{displayName}</p>
-              <p className="text-[11px] text-stone-400 dark:text-zinc-500 truncate">{user?.email}</p>
+            <div className="overflow-hidden flex-1 text-left">
+              <p className="font-bold text-stone-900 dark:text-white text-sm truncate group-hover:text-orange-500 dark:group-hover:text-amber-400 transition-colors">{displayName}</p>
+              <p className="text-[11px] text-stone-400 dark:text-zinc-500 truncate">View profile →</p>
             </div>
-          </div>
+          </button>
+
           <button onClick={onLogout}
             className="w-full py-2.5 rounded-xl border border-stone-200 dark:border-zinc-800 hover:bg-stone-100 dark:hover:bg-zinc-900 text-stone-400 dark:text-zinc-500 hover:text-stone-900 dark:hover:text-white transition-colors flex items-center justify-center gap-2 text-sm font-semibold">
             <LogOut size={14} /> Sign Out
@@ -313,7 +343,6 @@ const Dashboard = ({ user, progress, modules, onSelectModule, onStartFinal, onLo
             {activeView === 'overview' && <OverviewView />}
             {activeView === 'curriculum' && <CurriculumView />}
             {activeView === 'resources' && <ResourcesView />}
-            {activeView === 'admin' && isAdmin && onAdminView && onAdminView()}
           </div>
         </main>
       </div>
